@@ -1,22 +1,28 @@
 const state = {
+  currentTab: "flights",
   tripType: "round-trip",
   passengers: 1,
-  results: [],
+  hotelGuests: 1,
   apiReady: false,
+  hotelsReady: false,
   providerName: "Travelpayouts Data API",
+  hotelProviderName: "Travelpayouts partner links API",
   searchMode: "cache",
+  hotelMode: "direct-links",
   selectedAirport: {
     origin: null,
     destination: null
   },
   autocomplete: {
     origin: { highlight: -1, results: [], debounceId: null },
-    destination: { highlight: -1, results: [], debounceId: null }
+    destination: { highlight: -1, results: [], debounceId: null },
+    hotel: { highlight: -1, results: [], debounceId: null }
   }
 };
 
 const elements = {
-  stars: document.getElementById("stars"),
+  tabButtons: [...document.querySelectorAll(".tab-btn")],
+  searchPanels: [...document.querySelectorAll(".search-panel")],
   origin: document.getElementById("origin"),
   destination: document.getElementById("destination"),
   acOrigin: document.getElementById("ac-origin"),
@@ -31,6 +37,17 @@ const elements = {
   swapRoute: document.getElementById("swap-route"),
   nonStop: document.getElementById("non-stop"),
   searchButton: document.getElementById("search-button"),
+  hotelDestination: document.getElementById("hotel-destination"),
+  acHotelDestination: document.getElementById("ac-hotel-destination"),
+  hotelCheckin: document.getElementById("hotel-checkin"),
+  hotelCheckout: document.getElementById("hotel-checkout"),
+  hotelGuestsCount: document.getElementById("hotel-guests-count"),
+  hotelGuestsMinus: document.getElementById("hotel-guests-minus"),
+  hotelGuestsPlus: document.getElementById("hotel-guests-plus"),
+  hotelRooms: document.getElementById("hotel-rooms"),
+  hotelAffiliate: document.getElementById("hotel-affiliate"),
+  hotelWifi: document.getElementById("hotel-wifi"),
+  searchHotelsButton: document.getElementById("search-hotels-button"),
   loading: document.getElementById("loading"),
   errorState: document.getElementById("error-state"),
   resultsSection: document.getElementById("results-section"),
@@ -39,39 +56,10 @@ const elements = {
   resultsGrid: document.getElementById("results-grid"),
   emptyState: document.getElementById("empty-state"),
   tripButtons: [...document.querySelectorAll(".trip-btn")],
-  liveNote: document.getElementById("live-note-text")
+  liveNote: document.getElementById("live-note-text"),
+  panelHelper: document.querySelector(".panel-helper"),
+  stars: document.getElementById("stars")
 };
-
-function createStars() {
-  for (let index = 0; index < 120; index += 1) {
-    const star = document.createElement("div");
-    const size = Math.random() * 2 + 1;
-    star.className = "star";
-    star.style.width = `${size}px`;
-    star.style.height = `${size}px`;
-    star.style.top = `${Math.random() * 100}%`;
-    star.style.left = `${Math.random() * 100}%`;
-    star.style.setProperty("--duration", `${(Math.random() * 4 + 2).toFixed(1)}s`);
-    star.style.setProperty("--opacity", (Math.random() * 0.55 + 0.15).toFixed(2));
-    star.style.animationDelay = `${(Math.random() * 5).toFixed(1)}s`;
-    elements.stars.appendChild(star);
-  }
-}
-
-function setDefaultDates() {
-  const today = new Date();
-  const departure = new Date(today);
-  const returning = new Date(today);
-  departure.setDate(today.getDate() + 30);
-  returning.setDate(today.getDate() + 37);
-
-  const format = (value) => value.toISOString().split("T")[0];
-
-  elements.departureDate.min = format(today);
-  elements.departureDate.value = format(departure);
-  elements.returnDate.min = format(departure);
-  elements.returnDate.value = format(returning);
-}
 
 function normalize(value) {
   return String(value || "")
@@ -79,6 +67,37 @@ function normalize(value) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function highlightMatch(value, query) {
+  const rawValue = String(value || "");
+  const normalizedQuery = normalize(query);
+
+  if (!normalizedQuery || normalizedQuery.length < 2) {
+    return escapeHtml(rawValue);
+  }
+
+  const normalizedValue = normalize(rawValue);
+  const index = normalizedValue.indexOf(normalizedQuery);
+
+  if (index < 0) {
+    return escapeHtml(rawValue);
+  }
+
+  const before = rawValue.slice(0, index);
+  const match = rawValue.slice(index, index + query.length);
+  const after = rawValue.slice(index + query.length);
+
+  return `${escapeHtml(before)}<mark class="ac-match">${escapeHtml(match)}</mark>${escapeHtml(after)}`;
 }
 
 function formatAirportLabel(airport) {
@@ -99,35 +118,89 @@ function formatAirportType(type) {
   }[type] || "Aeroporto";
 }
 
-function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+function getFlightsReadyMessage() {
+  if (!state.apiReady) {
+    return "API detectada, mas a busca de voos ainda nao esta pronta.";
+  }
+
+  return state.searchMode === "cache"
+    ? `${state.providerName} pronta. Busca por cache habilitada.`
+    : `${state.providerName} pronta. Busca habilitada.`;
 }
 
-function highlightMatch(value, query) {
-  const normalizedQuery = normalize(query);
-  const rawValue = String(value || "");
-
-  if (!normalizedQuery || normalizedQuery.length < 2) {
-    return escapeHtml(rawValue);
+function getHotelsReadyMessage() {
+  if (state.hotelsReady && state.hotelMode === "affiliate-links") {
+    return `${state.hotelProviderName} pronta. Links afiliados de hoteis habilitados.`;
   }
 
-  const normalizedValue = normalize(rawValue);
-  const index = normalizedValue.indexOf(normalizedQuery);
+  return `Busca de hoteis pronta. Escolha o afiliado no filtro e abra o parceiro selecionado.`;
+}
 
-  if (index < 0) {
-    return escapeHtml(rawValue);
+function updatePanelByTab() {
+  if (state.currentTab === "hotels") {
+    elements.panelHelper.textContent = "Digite cidade ou regiao. Exemplo: Rio de Janeiro, Sao Paulo, Lisbon.";
+    elements.liveNote.textContent = getHotelsReadyMessage();
+    return;
   }
 
-  const before = rawValue.slice(0, index);
-  const match = rawValue.slice(index, index + query.length);
-  const after = rawValue.slice(index + query.length);
+  elements.panelHelper.textContent = "Digite cidade, aeroporto ou IATA. Exemplo: Sao Paulo (GRU), London (LHR), Tokyo (HND).";
+  elements.liveNote.textContent = getFlightsReadyMessage();
+}
 
-  return `${escapeHtml(before)}<mark class="ac-match">${escapeHtml(match)}</mark>${escapeHtml(after)}`;
+function switchTab(tabName) {
+  state.currentTab = tabName;
+
+  elements.tabButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.tab === tabName);
+  });
+
+  elements.searchPanels.forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.panel === tabName);
+  });
+
+  updatePanelByTab();
+  setError("");
+}
+
+function createStars() {
+  for (let index = 0; index < 120; index += 1) {
+    const star = document.createElement("div");
+    const size = Math.random() * 2 + 1;
+
+    star.className = "star";
+    star.style.width = `${size}px`;
+    star.style.height = `${size}px`;
+    star.style.top = `${Math.random() * 100}%`;
+    star.style.left = `${Math.random() * 100}%`;
+    star.style.setProperty("--duration", `${(Math.random() * 4 + 2).toFixed(1)}s`);
+    star.style.setProperty("--opacity", (Math.random() * 0.55 + 0.15).toFixed(2));
+    star.style.animationDelay = `${(Math.random() * 5).toFixed(1)}s`;
+    elements.stars.appendChild(star);
+  }
+}
+
+function setDefaultDates() {
+  const today = new Date();
+  const departure = new Date(today);
+  const returning = new Date(today);
+  const hotelCheckin = new Date(today);
+  const hotelCheckout = new Date(today);
+  const format = (value) => value.toISOString().split("T")[0];
+
+  departure.setDate(today.getDate() + 30);
+  returning.setDate(today.getDate() + 37);
+  hotelCheckin.setDate(today.getDate() + 7);
+  hotelCheckout.setDate(today.getDate() + 10);
+
+  elements.departureDate.min = format(today);
+  elements.departureDate.value = format(departure);
+  elements.returnDate.min = format(departure);
+  elements.returnDate.value = format(returning);
+
+  elements.hotelCheckin.min = format(today);
+  elements.hotelCheckin.value = format(hotelCheckin);
+  elements.hotelCheckout.min = format(hotelCheckin);
+  elements.hotelCheckout.value = format(hotelCheckout);
 }
 
 function setSelectedAirport(key, airport, inputElement) {
@@ -155,7 +228,6 @@ async function fetchAirportSuggestions(query, limit = 8) {
       Accept: "application/json"
     }
   });
-
   const payload = await response.json();
 
   if (!response.ok) {
@@ -165,11 +237,28 @@ async function fetchAirportSuggestions(query, limit = 8) {
   return payload.results || [];
 }
 
-function renderAutocomplete(listElement, inputElement, results, key) {
+async function fetchCitySuggestions(query, limit = 8) {
+  const response = await fetch(`/api/airports?q=${encodeURIComponent(query)}&limit=${limit}&scope=cities`, {
+    headers: {
+      Accept: "application/json"
+    }
+  });
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload.error || "Nao foi possivel carregar cidades.");
+  }
+
+  return payload.results || [];
+}
+
+function renderAirportAutocomplete(listElement, inputElement, results, key) {
   const autocompleteState = state.autocomplete[key];
+
   autocompleteState.results = results;
   autocompleteState.highlight = -1;
   listElement.innerHTML = "";
+
   let currentGroup = "";
   const query = inputElement.value.trim();
 
@@ -189,17 +278,61 @@ function renderAutocomplete(listElement, inputElement, results, key) {
     item.innerHTML = `
       <span>
         <div class="ac-city">${highlightMatch(airport.city, query)} (${highlightMatch(airport.iata, query)})</div>
-        <div class="ac-country">${highlightMatch(airport.country, query)}${airport.icao ? ` · ICAO ${highlightMatch(airport.icao, query)}` : ""}</div>
+        <div class="ac-country">${highlightMatch(airport.country, query)}${airport.icao ? ` - ICAO ${highlightMatch(airport.icao, query)}` : ""}</div>
       </span>
       <span class="ac-type">${formatAirportType(airport.type)}</span>
       <span class="ac-iata">${airport.iata}</span>
     `;
+
     item.addEventListener("mousedown", (event) => event.preventDefault());
     item.addEventListener("click", () => {
       inputElement.value = formatAirportLabel(airport);
       setSelectedAirport(key, airport, inputElement);
       listElement.classList.remove("open");
     });
+
+    listElement.appendChild(item);
+  });
+
+  listElement.classList.toggle("open", results.length > 0);
+}
+
+function renderHotelAutocomplete(listElement, inputElement, results, key) {
+  const autocompleteState = state.autocomplete[key];
+
+  autocompleteState.results = results;
+  autocompleteState.highlight = -1;
+  listElement.innerHTML = "";
+
+  let currentGroup = "";
+  const query = inputElement.value.trim();
+
+  results.forEach((city) => {
+    if (city.country !== currentGroup) {
+      const group = document.createElement("div");
+      group.className = "ac-group";
+      group.textContent = city.country;
+      listElement.appendChild(group);
+      currentGroup = city.country;
+    }
+
+    const item = document.createElement("div");
+    item.className = "ac-item";
+    item.innerHTML = `
+      <span>
+        <div class="ac-city">${highlightMatch(city.city, query)}</div>
+        <div class="ac-country">${highlightMatch(city.country, query)}${city.iata ? ` - aeroporto ${highlightMatch(city.iata, query)}` : ""}</div>
+      </span>
+      <span class="ac-type">Cidade</span>
+      <span class="ac-iata">${city.iata || "HTL"}</span>
+    `;
+
+    item.addEventListener("mousedown", (event) => event.preventDefault());
+    item.addEventListener("click", () => {
+      inputElement.value = city.label || city.city;
+      listElement.classList.remove("open");
+    });
+
     listElement.appendChild(item);
   });
 
@@ -208,12 +341,13 @@ function renderAutocomplete(listElement, inputElement, results, key) {
 
 function highlightAutocomplete(listElement, key) {
   const highlight = state.autocomplete[key].highlight;
-  [...listElement.querySelectorAll(".ac-item")].forEach((item, itemIndex) => {
-    item.classList.toggle("highlighted", itemIndex === highlight);
+
+  [...listElement.querySelectorAll(".ac-item")].forEach((item, index) => {
+    item.classList.toggle("highlighted", index === highlight);
   });
 }
 
-function scheduleAutocomplete(key, inputElement, listElement) {
+function scheduleAirportAutocomplete(key, inputElement, listElement) {
   const autocompleteState = state.autocomplete[key];
   const query = inputElement.value.trim();
 
@@ -231,25 +365,40 @@ function scheduleAutocomplete(key, inputElement, listElement) {
   autocompleteState.debounceId = window.setTimeout(async () => {
     try {
       const results = await fetchAirportSuggestions(query, 8);
-      renderAutocomplete(listElement, inputElement, results, key);
+      renderAirportAutocomplete(listElement, inputElement, results, key);
     } catch (_error) {
       autocompleteState.results = [];
       listElement.classList.remove("open");
     }
-  }, 180);
+  }, 200);
 }
 
-function setupAutocomplete(inputElement, listElement, key) {
-  inputElement.addEventListener("input", () => {
-    scheduleAutocomplete(key, inputElement, listElement);
-  });
+function scheduleHotelAutocomplete(inputElement, listElement, key) {
+  const autocompleteState = state.autocomplete[key];
+  const query = inputElement.value.trim();
 
-  inputElement.addEventListener("focus", () => {
-    if (inputElement.value.trim().length >= 2) {
-      scheduleAutocomplete(key, inputElement, listElement);
+  clearTimeout(autocompleteState.debounceId);
+  autocompleteState.highlight = -1;
+
+  if (query.length < 2) {
+    autocompleteState.results = [];
+    listElement.classList.remove("open");
+    listElement.innerHTML = "";
+    return;
+  }
+
+  autocompleteState.debounceId = window.setTimeout(async () => {
+    try {
+      const results = await fetchCitySuggestions(query, 8);
+      renderHotelAutocomplete(listElement, inputElement, results, key);
+    } catch (_error) {
+      autocompleteState.results = [];
+      listElement.classList.remove("open");
     }
-  });
+  }, 200);
+}
 
+function bindAutocompleteKeyboard(inputElement, listElement, key) {
   inputElement.addEventListener("keydown", (event) => {
     const autocompleteState = state.autocomplete[key];
     const items = [...listElement.querySelectorAll(".ac-item")];
@@ -287,6 +436,34 @@ function setupAutocomplete(inputElement, listElement, key) {
   });
 }
 
+function setupAirportAutocomplete(inputElement, listElement, key) {
+  inputElement.addEventListener("input", () => {
+    scheduleAirportAutocomplete(key, inputElement, listElement);
+  });
+
+  inputElement.addEventListener("focus", () => {
+    if (inputElement.value.trim().length >= 2) {
+      scheduleAirportAutocomplete(key, inputElement, listElement);
+    }
+  });
+
+  bindAutocompleteKeyboard(inputElement, listElement, key);
+}
+
+function setupHotelAutocomplete(inputElement, listElement, key) {
+  inputElement.addEventListener("input", () => {
+    scheduleHotelAutocomplete(inputElement, listElement, key);
+  });
+
+  inputElement.addEventListener("focus", () => {
+    if (inputElement.value.trim().length >= 2) {
+      scheduleHotelAutocomplete(inputElement, listElement, key);
+    }
+  });
+
+  bindAutocompleteKeyboard(inputElement, listElement, key);
+}
+
 function swapRouteInputs() {
   const originAirport = state.selectedAirport.origin;
   const destinationAirport = state.selectedAirport.destination;
@@ -307,17 +484,18 @@ function swapRouteInputs() {
 
 function setTripType(type) {
   state.tripType = type;
+
   elements.tripButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.type === type);
   });
 
   if (type === "one-way") {
-    elements.returnGroup.classList.add("hidden");
+    elements.returnGroup.style.display = "none";
     elements.returnDate.disabled = true;
     return;
   }
 
-  elements.returnGroup.classList.remove("hidden");
+  elements.returnGroup.style.display = "";
   elements.returnDate.disabled = false;
 }
 
@@ -326,15 +504,27 @@ function updatePassengers(delta) {
   elements.passCount.textContent = String(state.passengers);
 }
 
+function updateHotelGuests(delta) {
+  state.hotelGuests = Math.max(1, Math.min(20, state.hotelGuests + delta));
+  elements.hotelGuestsCount.textContent = String(state.hotelGuests);
+}
+
 function setLoading(isLoading) {
   elements.loading.classList.toggle("visible", isLoading);
   elements.searchButton.disabled = isLoading || !state.apiReady;
-  elements.searchButton.textContent = isLoading ? "Buscando..." : "Buscar promocoes";
+  elements.searchHotelsButton.disabled = isLoading;
+  elements.searchButton.textContent = state.currentTab === "flights" && isLoading ? "Buscando..." : "Buscar promocoes";
+  elements.searchHotelsButton.textContent = state.currentTab === "hotels" && isLoading ? "Buscando..." : "Buscar hoteis";
 }
 
 function setSearchEnabled(isEnabled) {
   state.apiReady = isEnabled;
   elements.searchButton.disabled = !isEnabled;
+}
+
+function setHotelsEnabled(isEnabled) {
+  state.hotelsReady = isEnabled;
+  elements.searchHotelsButton.disabled = false;
 }
 
 function setError(message) {
@@ -394,7 +584,21 @@ function formatStops(stops) {
   return `${stops} escalas`;
 }
 
-function buildResultCard(result, index) {
+function buildQueryString(params) {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+
+    searchParams.set(key, String(value));
+  });
+
+  return searchParams.toString();
+}
+
+function buildFlightResultCard(result, index) {
   const article = document.createElement("article");
   const outbound = result.outbound;
   const inbound = result.inbound;
@@ -402,7 +606,7 @@ function buildResultCard(result, index) {
   const directChip = outbound.stops === 0 ? '<span class="meta-chip">Sem escalas</span>' : "";
   const freshnessChip = result.actual ? '<span class="meta-chip">Oferta atual</span>' : '<span class="meta-chip">Preco em cache</span>';
   const returnLine = inbound
-    ? `<div class="return-line"><strong>Volta:</strong> ${formatDate(inbound.departureDate)} · ${formatStops(inbound.stops)}</div>`
+    ? `<div class="return-line"><strong>Volta:</strong> ${formatDate(inbound.departureDate)} - ${formatStops(inbound.stops)}</div>`
     : "";
   const foundLine = result.foundAt
     ? `<div class="return-line"><strong>Encontrada em:</strong> ${formatDateTime(result.foundAt)}</div>`
@@ -444,7 +648,7 @@ function buildResultCard(result, index) {
     <div class="price-block">
       <div class="price-label">Preco encontrado</div>
       <div class="price-value">${formatCurrency(result.totalPrice, result.currency)}</div>
-      <div class="price-caption">${result.source} · ${state.passengers} passageiro(s)</div>
+      <div class="price-caption">${result.source} - ${state.passengers} passageiro(s)</div>
       ${cta}
     </div>
   `;
@@ -452,8 +656,7 @@ function buildResultCard(result, index) {
   return article;
 }
 
-function renderResults(results, meta) {
-  state.results = results;
+function renderFlightResults(results, meta) {
   elements.resultsGrid.innerHTML = "";
 
   if (!results.length) {
@@ -469,11 +672,83 @@ function renderResults(results, meta) {
 
   const tripLabel = meta.returnDate ? `${formatDate(meta.departureDate)} a ${formatDate(meta.returnDate)}` : formatDate(meta.departureDate);
   const directLabel = meta.nonStop ? "somente voos diretos" : "com conexoes permitidas";
+  const classLabel = meta.travelClassApplied
+    ? `classe ${meta.travelClassLabel.toLowerCase()}`
+    : `classe solicitada ${String(meta.travelClassLabel || "nao informada").toLowerCase()}`;
+  const classNotice = meta.travelClassNotice ? ` - ${meta.travelClassNotice}` : "";
 
-  elements.resultsSubtitle.textContent = `${results.length} promocao(oes) encontradas · ${tripLabel} · ${meta.source} · ${meta.freshness} · ${directLabel}`;
+  elements.resultsSubtitle.textContent = `${results.length} promocao(oes) encontradas - ${tripLabel} - ${meta.source} - ${classLabel} - ${meta.freshness} - ${directLabel}${classNotice}`;
 
   results.forEach((result, index) => {
-    elements.resultsGrid.appendChild(buildResultCard(result, index));
+    elements.resultsGrid.appendChild(buildFlightResultCard(result, index));
+  });
+}
+
+function buildHotelResultCard(result, meta, index) {
+  const article = document.createElement("article");
+  const featuredChip = index === 0 ? '<span class="promo-chip">Link principal</span>' : "";
+  const modeChip = '<span class="meta-chip">Afiliado</span>';
+  const wifiChip = meta.wifi ? '<span class="meta-chip">Wi-Fi como preferencia</span>' : "";
+  const notes = Array.isArray(result.notes)
+    ? `<div class="return-line"><strong>Observacoes:</strong> ${result.notes.join(" - ")}</div>`
+    : "";
+
+  article.className = "result-card";
+  article.innerHTML = `
+    <div class="airline-badge">${result.badge || "HTL"}</div>
+    <div class="flight-main">
+      <div class="flight-head">
+        <span class="airline-name">${result.provider}</span>
+        ${featuredChip}
+        ${modeChip}
+        ${wifiChip}
+      </div>
+      <div class="itinerary-line">
+        <div class="time-block">
+          <div class="time-big">${escapeHtml(meta.destination)}</div>
+          <div class="time-city">DESTINO</div>
+        </div>
+        <div class="path-block">
+          <div class="path-duration">${formatDate(meta.checkin)} a ${formatDate(meta.checkout)}</div>
+          <div class="path-line">
+            <span class="path-plane">HOTEL</span>
+          </div>
+          <div class="path-stops direct">${escapeHtml(result.summary || "Busca preenchida no parceiro.")}</div>
+        </div>
+        <div class="time-block">
+          <div class="time-big">${meta.adults} hosp.</div>
+          <div class="time-city">${meta.rooms} quarto(s)</div>
+        </div>
+      </div>
+      ${notes}
+    </div>
+    <div class="price-block">
+      <div class="price-label">Reserva</div>
+      <div class="price-value hotel-action">Abrir parceiro</div>
+      <div class="price-caption">${result.source}</div>
+      <a class="cta-link" href="${result.affiliateUrl}" target="_blank" rel="noopener noreferrer">${result.ctaLabel || "Abrir oferta"}</a>
+    </div>
+  `;
+
+  return article;
+}
+
+function renderHotelResults(results, meta) {
+  elements.resultsGrid.innerHTML = "";
+
+  if (!results.length) {
+    elements.emptyState.classList.add("visible");
+    elements.resultsTitle.textContent = `Hoteis em ${meta.destination}`;
+    elements.resultsSubtitle.textContent = "Nenhum link de hotel foi gerado para essa busca.";
+    return;
+  }
+
+  elements.emptyState.classList.remove("visible");
+  elements.resultsTitle.textContent = `Hoteis em ${meta.destination}`;
+  elements.resultsSubtitle.textContent = `${results.length} opcao(oes) pronta(s) - ${formatDate(meta.checkin)} a ${formatDate(meta.checkout)} - ${meta.source} - afiliado ${meta.provider}`;
+
+  results.forEach((result, index) => {
+    elements.resultsGrid.appendChild(buildHotelResultCard(result, meta, index));
   });
 }
 
@@ -516,8 +791,7 @@ async function searchFlights() {
   }
 
   const departureDate = elements.departureDate.value;
-  const returnDate = state.tripType === "round-trip" ? elements.returnDate.value : "";
-  const cabin = elements.cabin.value;
+  const returnDate = state.tripType === "one-way" ? "" : elements.returnDate.value;
   const nonStop = elements.nonStop.checked;
 
   if (!elements.origin.value.trim() || !elements.destination.value.trim()) {
@@ -530,12 +804,12 @@ async function searchFlights() {
     return;
   }
 
-  if (state.tripType === "round-trip" && !returnDate) {
+  if (state.tripType !== "one-way" && !returnDate) {
     setError("Selecione a data de volta.");
     return;
   }
 
-  if (state.tripType === "round-trip" && returnDate < departureDate) {
+  if (state.tripType !== "one-way" && returnDate < departureDate) {
     setError("A data de volta nao pode ser anterior a ida.");
     return;
   }
@@ -557,29 +831,27 @@ async function searchFlights() {
       throw new Error("Origem e destino precisam ser diferentes.");
     }
 
-    const response = await fetch("/api/search", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        origin,
-        destination,
-        departureDate,
-        returnDate,
-        adults: state.passengers,
-        travelClass: cabin,
-        nonStop
-      })
+    const queryString = buildQueryString({
+      origin,
+      destination,
+      departureDate,
+      returnDate,
+      adults: state.passengers,
+      travelClass: elements.cabin.value,
+      nonStop
     });
-
+    const response = await fetch(`/api/search?${queryString}`, {
+      headers: {
+        Accept: "application/json"
+      }
+    });
     const payload = await response.json();
 
     if (!response.ok) {
       throw new Error(payload.error || "Nao foi possivel consultar a API de promocoes.");
     }
 
-    renderResults(payload.results || [], payload.meta);
+    renderFlightResults(payload.results || [], payload.meta);
     elements.resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
     const fallbackMessage =
@@ -590,18 +862,73 @@ async function searchFlights() {
     setError(fallbackMessage);
   } finally {
     setLoading(false);
-    elements.liveNote.textContent =
-      state.searchMode === "cache"
-        ? `Consultando promocoes em cache pela ${state.providerName}.`
-        : `Consultando promocoes pela ${state.providerName}.`;
+    updatePanelByTab();
+  }
+}
+
+async function searchHotels() {
+  setError("");
+
+  const destination = elements.hotelDestination.value.trim();
+  const checkin = elements.hotelCheckin.value;
+  const checkout = elements.hotelCheckout.value;
+  const affiliatePartner = elements.hotelAffiliate.value || "auto";
+
+  if (!destination) {
+    setError("Informe o destino para a busca de hoteis.");
+    return;
+  }
+
+  if (!checkin || !checkout) {
+    setError("Selecione as datas de check-in e check-out.");
+    return;
+  }
+
+  if (checkout <= checkin) {
+    setError("A data de check-out deve ser posterior a de check-in.");
+    return;
+  }
+
+  setLoading(true);
+  elements.liveNote.textContent = "Gerando links afiliados de hoteis...";
+
+  try {
+    const queryString = buildQueryString({
+      destination,
+      checkin,
+      checkout,
+      adults: state.hotelGuests,
+      rooms: Number(elements.hotelRooms.value || 1),
+      affiliatePartner,
+      wifi: elements.hotelWifi.checked
+    });
+    const response = await fetch(`/api/hotels?${queryString}`, {
+      headers: {
+        Accept: "application/json"
+      }
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Nao foi possivel buscar hoteis.");
+    }
+
+    renderHotelResults(payload.results || [], payload.meta);
+    elements.resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (error) {
+    setError(error.message || "Nao foi possivel buscar hoteis.");
+  } finally {
+    setLoading(false);
+    updatePanelByTab();
   }
 }
 
 async function checkApiAvailability() {
   if (window.location.protocol === "file:") {
     setSearchEnabled(false);
+    setHotelsEnabled(false);
     elements.liveNote.textContent = "Abra o projeto pela Vercel ou `vercel dev` para habilitar a funcao serverless.";
-    setError("Este arquivo foi aberto localmente com file://. A rota /api/search so existe quando o projeto roda em um servidor.");
+    setError("Este arquivo foi aberto localmente com file://. As rotas /api so existem quando o projeto roda em um servidor.");
     return;
   }
 
@@ -611,49 +938,59 @@ async function checkApiAvailability() {
         Accept: "application/json"
       }
     });
-
     const payload = await response.json();
 
     if (!response.ok) {
       throw new Error(payload.error || "Nao foi possivel validar a API.");
     }
 
+    state.providerName = payload.provider === "travelpayouts" ? "Travelpayouts Data API" : "API de busca";
+    state.searchMode = payload.searchMode || "cache";
+    state.hotelMode = payload.hotelMode || "cpa-links";
+    state.hotelProviderName =
+      payload.hotelMode === "affiliate-links"
+        ? "Travelpayouts partner links API"
+        : payload.hotelDirectProvider || "Klook";
+
+    setSearchEnabled(Boolean(payload.flightsConfigured ?? payload.configured));
+    setHotelsEnabled(Boolean(payload.hotelsAvailable ?? true));
+    updatePanelByTab();
+
     if (!payload.configured) {
-      setSearchEnabled(false);
-      elements.liveNote.textContent = "API detectada, mas falta o token de ambiente.";
       setError("Configure TRAVELPAYOUTS_API_TOKEN para habilitar as pesquisas.");
       return;
     }
 
-    state.providerName = payload.provider === "travelpayouts" ? "Travelpayouts Data API" : "API de busca";
-    state.searchMode = payload.searchMode || "cache";
-    setSearchEnabled(true);
-    elements.liveNote.textContent =
-      state.searchMode === "cache"
-        ? `${state.providerName} pronta. Busca por cache habilitada.`
-        : `${state.providerName} pronta. Busca habilitada.`;
     setError("");
   } catch (error) {
     setSearchEnabled(false);
+    setHotelsEnabled(false);
     elements.liveNote.textContent = "A API nao respondeu. Verifique se o deploy serverless esta ativo.";
     setError(error.message || "Nao foi possivel conectar a /api/health.");
   }
 }
 
 function bindEvents() {
-  setupAutocomplete(elements.origin, elements.acOrigin, "origin");
-  setupAutocomplete(elements.destination, elements.acDestination, "destination");
+  elements.tabButtons.forEach((button) => {
+    button.addEventListener("click", () => switchTab(button.dataset.tab));
+  });
 
   elements.tripButtons.forEach((button) => {
     button.addEventListener("click", () => setTripType(button.dataset.type));
   });
 
+  setupAirportAutocomplete(elements.origin, elements.acOrigin, "origin");
+  setupAirportAutocomplete(elements.destination, elements.acDestination, "destination");
+  setupHotelAutocomplete(elements.hotelDestination, elements.acHotelDestination, "hotel");
+
   elements.passMinus.addEventListener("click", () => updatePassengers(-1));
   elements.passPlus.addEventListener("click", () => updatePassengers(1));
-  if (elements.swapRoute) {
-    elements.swapRoute.addEventListener("click", swapRouteInputs);
-  }
+  elements.hotelGuestsMinus.addEventListener("click", () => updateHotelGuests(-1));
+  elements.hotelGuestsPlus.addEventListener("click", () => updateHotelGuests(1));
+
+  elements.swapRoute?.addEventListener("click", swapRouteInputs);
   elements.searchButton.addEventListener("click", searchFlights);
+  elements.searchHotelsButton.addEventListener("click", searchHotels);
 
   elements.departureDate.addEventListener("change", () => {
     if (elements.returnDate.value && elements.returnDate.value < elements.departureDate.value) {
@@ -661,6 +998,14 @@ function bindEvents() {
     }
 
     elements.returnDate.min = elements.departureDate.value;
+  });
+
+  elements.hotelCheckin.addEventListener("change", () => {
+    if (elements.hotelCheckout.value && elements.hotelCheckout.value <= elements.hotelCheckin.value) {
+      elements.hotelCheckout.value = elements.hotelCheckin.value;
+    }
+
+    elements.hotelCheckout.min = elements.hotelCheckin.value;
   });
 }
 
@@ -670,10 +1015,15 @@ async function init() {
   bindEvents();
   setTripType("round-trip");
   setSearchEnabled(false);
+  setHotelsEnabled(false);
+
   elements.origin.value = "Sao Paulo - Guarulhos (GRU)";
   elements.destination.value = "Rio de Janeiro - Galeao (GIG)";
   setSelectedAirport("origin", { iata: "GRU", city: "Sao Paulo - Guarulhos" }, elements.origin);
   setSelectedAirport("destination", { iata: "GIG", city: "Rio de Janeiro - Galeao" }, elements.destination);
+  elements.hotelDestination.placeholder = "Ex: Rio de Janeiro, Sao Paulo, Lisbon";
+
+  updatePanelByTab();
   await checkApiAvailability();
 }
 

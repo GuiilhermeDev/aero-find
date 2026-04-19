@@ -3,6 +3,7 @@ const OURAIRPORTS_COUNTRIES_URL = "https://ourairports.com/data/countries.csv";
 
 const cache = {
   airports: null,
+  cities: null,
   promise: null
 };
 
@@ -172,6 +173,65 @@ async function loadAirports() {
   return cache.promise;
 }
 
+function buildCitySearchText(city) {
+  return [city.city, city.country, city.region, city.iata].filter(Boolean).join(" ");
+}
+
+function airportTypeRank(type) {
+  if (type === "large_airport") {
+    return 3;
+  }
+
+  if (type === "medium_airport") {
+    return 2;
+  }
+
+  return 1;
+}
+
+function buildCities(airports) {
+  if (cache.cities) {
+    return cache.cities;
+  }
+
+  const cityMap = new Map();
+
+  airports.forEach((airport) => {
+    const cityName = (airport.municipality || airport.city.split(" - ")[0] || "").trim();
+
+    if (!cityName) {
+      return;
+    }
+
+    const key = `${normalize(cityName)}|${normalize(airport.country)}`;
+    const existing = cityMap.get(key);
+    const candidate = {
+      city: cityName,
+      country: airport.country,
+      region: airport.region,
+      iata: airport.iata,
+      airportName: airport.name,
+      rank: airportTypeRank(airport.type)
+    };
+
+    if (!existing || candidate.rank > existing.rank) {
+      cityMap.set(key, candidate);
+    }
+  });
+
+  cache.cities = [...cityMap.values()].map((city) => ({
+    city: city.city,
+    country: city.country,
+    region: city.region,
+    iata: city.iata,
+    airportName: city.airportName,
+    label: `${city.city}, ${city.country}`,
+    searchText: buildCitySearchText(city)
+  }));
+
+  return cache.cities;
+}
+
 function scoreAirport(airport, query) {
   const normalizedQuery = normalize(query);
   const normalizedIata = normalize(airport.iata);
@@ -236,6 +296,38 @@ function scoreAirport(airport, query) {
   return score;
 }
 
+function scoreCity(city, query) {
+  const normalizedQuery = normalize(query);
+  const normalizedCity = normalize(city.city);
+  const normalizedCountry = normalize(city.country);
+  const normalizedIata = normalize(city.iata);
+  const normalizedSearchText = normalize(city.searchText);
+
+  let score = 0;
+
+  if (normalizedCity === normalizedQuery) {
+    score += 220;
+  }
+
+  if (normalizedIata === normalizedQuery) {
+    score += 120;
+  }
+
+  if (normalizedCity.startsWith(normalizedQuery)) {
+    score += 100;
+  }
+
+  if (normalizedCountry.startsWith(normalizedQuery)) {
+    score += 50;
+  }
+
+  if (normalizedSearchText.includes(normalizedQuery)) {
+    score += 25;
+  }
+
+  return score;
+}
+
 module.exports = async (req, res) => {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
 
@@ -247,6 +339,7 @@ module.exports = async (req, res) => {
   try {
     const query = String(req.query?.q || "").trim();
     const limit = Math.max(1, Math.min(20, Number(req.query?.limit || 8)));
+    const scope = String(req.query?.scope || "airports").toLowerCase();
 
     if (query.length < 2) {
       res.status(200).end(JSON.stringify({ results: [] }));
@@ -254,6 +347,20 @@ module.exports = async (req, res) => {
     }
 
     const airports = await loadAirports();
+
+    if (scope === "cities") {
+      const cities = buildCities(airports);
+      const results = cities
+        .map((city) => ({ city, score: scoreCity(city, query) }))
+        .filter((entry) => entry.score > 0)
+        .sort((left, right) => right.score - left.score || left.city.city.localeCompare(right.city.city))
+        .slice(0, limit)
+        .map((entry) => entry.city);
+
+      res.status(200).end(JSON.stringify({ results }));
+      return;
+    }
+
     const results = airports
       .map((airport) => ({ airport, score: scoreAirport(airport, query) }))
       .filter((entry) => entry.score > 0)

@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AeroFind | Busca de promocoes de passagens</title>
+  <title>AeroFind | Busca de promocoes de passagens e hoteis</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230A1628'/%3E%3Cpath d='M52 26v-4L32 10 12 22v4l20-5v10L24 34v4l8-2 8 2v-4l-8-3V21l20 5z' fill='%23F5A623'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <script src="/app.js" defer></script>
 </head>
@@ -31,112 +31,179 @@
   <main class="page-shell">
     <section class="hero-grid">
       <div class="hero-copy">
-        <span class="hero-eyebrow">Comparador de passagens</span>
-        <h1>Pesquise rotas reais com uma interface mais clara e pronta para conversao.</h1>
+        <span class="hero-eyebrow">Comparador inteligente</span>
+        <h1>Pesquise voos e hoteis com uma interface clara e pronta para conversao.</h1>
         <p>
-          Encontre promocoes por cidade, nome do aeroporto ou codigo IATA, compare as menores tarifas
-          em cache e abra a referencia da oferta sem sair do fluxo.
+          Encontre promocoes de passagens, gere buscas afiliadas de hospedagem
+          e acesse as ofertas sem sair do fluxo.
         </p>
 
         <div class="hero-points">
           <div class="hero-point">
             <span class="hero-point-title">Cobertura global</span>
-            <span class="hero-point-text">Sugestoes com aeroportos do mundo todo, cidade e codigo IATA.</span>
+            <span class="hero-point-text">Sugestoes com aeroportos e cidades do mundo todo.</span>
           </div>
           <div class="hero-point">
             <span class="hero-point-title">Pesquisa enxuta</span>
-            <span class="hero-point-text">Origem e destino destacados para reduzir erro e acelerar a busca.</span>
+            <span class="hero-point-text">Campos destacados para reduzir erro e acelerar a busca.</span>
           </div>
           <div class="hero-point">
             <span class="hero-point-title">Saida rapida</span>
-            <span class="hero-point-text">Resultados priorizados por preco e acesso direto a referencia da oferta.</span>
+            <span class="hero-point-text">Voos ordenados por preco e hoteis com link afiliado pronto para abertura.</span>
           </div>
-        </div>
-
-        <div class="hero-marquee" aria-label="Exemplos de rotas">
-          <span>GRU para LIS</span>
-          <span>GIG para MIA</span>
-          <span>CGH para BUE</span>
-          <span>BSB para MAD</span>
         </div>
       </div>
 
       <div class="hero-panel">
         <div class="panel-heading">
           <span class="panel-kicker">Painel de busca</span>
-          <h2>Monte sua rota</h2>
-          <p>Campos maiores, busca assistida e foco total na consulta.</p>
+          <h2>Planeje sua viagem</h2>
+          <p>Voos com dados da API e hoteis com abertura afiliada para o parceiro.</p>
+        </div>
+
+        <div class="search-tabs">
+          <button class="tab-btn active" data-tab="flights" type="button">
+            <span class="tab-icon">&#9992;</span>
+            <span class="tab-label">Voos</span>
+          </button>
+          <button class="tab-btn" data-tab="hotels" type="button">
+            <span class="tab-icon">&#127968;</span>
+            <span class="tab-label">Hoteis</span>
+          </button>
         </div>
 
         <section class="search-shell">
-          <div class="search-card">
-            <div class="trip-type" id="trip-type">
-              <button class="trip-btn active" type="button" data-type="round-trip">Ida e volta</button>
-              <button class="trip-btn" type="button" data-type="one-way">So ida</button>
-            </div>
-
-            <div class="fields-row">
-              <div class="field-group route-field route-field-origin">
-                <label for="origin">Origem</label>
-                <input type="text" id="origin" placeholder="Cidade ou codigo IATA" autocomplete="off">
-                <div class="autocomplete-list" id="ac-origin"></div>
+          <div class="search-panel active" data-panel="flights">
+            <div class="search-card">
+              <div class="trip-type" id="trip-type">
+                <button class="trip-btn active" type="button" data-type="round-trip">Ida e volta</button>
+                <button class="trip-btn" type="button" data-type="one-way">Somente ida</button>
               </div>
 
-              <button class="swap-btn" type="button" id="swap-route" aria-label="Inverter origem e destino" title="Inverter origem e destino">
-                &#8646;
-              </button>
-
-              <div class="field-group route-field route-field-destination">
-                <label for="destination">Destino</label>
-                <input type="text" id="destination" placeholder="Cidade ou codigo IATA" autocomplete="off">
-                <div class="autocomplete-list" id="ac-destination"></div>
-              </div>
-
-              <div class="field-group departure-field">
-                <label for="departure-date">Ida</label>
-                <input type="date" id="departure-date">
-              </div>
-
-              <div class="field-group" id="return-group">
-                <label for="return-date">Volta</label>
-                <input type="date" id="return-date">
-              </div>
-
-              <button class="btn-search" type="button" id="search-button">Buscar promocoes</button>
-            </div>
-
-            <div class="row2">
-              <div class="field-group">
-                <label for="cabin">Classe</label>
-                <select id="cabin">
-                  <option value="ECONOMY">Economica</option>
-                  <option value="PREMIUM_ECONOMY">Premium Economy</option>
-                  <option value="BUSINESS">Executiva</option>
-                  <option value="FIRST">Primeira Classe</option>
-                </select>
-              </div>
-
-              <div class="field-group">
-                <label>Passageiros</label>
-                <div class="passengers-field">
-                  <button class="pass-btn" type="button" id="pass-minus">&#8722;</button>
-                  <span id="pass-count">1</span>
-                  <span class="pass-label">adulto(s)</span>
-                  <button class="pass-btn" type="button" id="pass-plus">+</button>
+              <div class="fields-row">
+                <div class="field-group route-field route-field-origin">
+                  <label for="origin">Origem</label>
+                  <input type="text" id="origin" placeholder="Cidade ou codigo IATA" autocomplete="off">
+                  <div class="autocomplete-list" id="ac-origin"></div>
                 </div>
+
+                <button class="swap-btn" type="button" id="swap-route" aria-label="Inverter origem e destino" title="Inverter origem e destino">
+                  &#8646;
+                </button>
+
+                <div class="field-group route-field route-field-destination">
+                  <label for="destination">Destino</label>
+                  <input type="text" id="destination" placeholder="Cidade ou codigo IATA" autocomplete="off">
+                  <div class="autocomplete-list" id="ac-destination"></div>
+                </div>
+
+                <div class="field-group departure-field">
+                  <label for="departure-date">Ida</label>
+                  <input type="date" id="departure-date">
+                </div>
+
+                <div class="field-group" id="return-group">
+                  <label for="return-date">Volta</label>
+                  <input type="date" id="return-date">
+                </div>
+
+                <button class="btn-search" type="button" id="search-button">Buscar promocoes</button>
               </div>
 
-              <label class="toggle-box">
-                <input type="checkbox" id="non-stop">
-                <span>Somente voos diretos</span>
-              </label>
+              <div class="row2">
+                <div class="field-group">
+                  <label for="cabin">Classe</label>
+                  <select id="cabin">
+                    <option value="ECONOMY">Economica</option>
+                    <option value="PREMIUM_ECONOMY">Premium Economy</option>
+                    <option value="BUSINESS">Executiva</option>
+                    <option value="FIRST">Primeira Classe</option>
+                  </select>
+                </div>
+
+                <div class="field-group">
+                  <label>Passageiros</label>
+                  <div class="passengers-field">
+                    <button class="pass-btn" type="button" id="pass-minus">&#8722;</button>
+                    <span id="pass-count">1</span>
+                    <span class="pass-label">adulto(s)</span>
+                    <button class="pass-btn" type="button" id="pass-plus">+</button>
+                  </div>
+                </div>
+
+                <label class="toggle-box">
+                  <input type="checkbox" id="non-stop">
+                  <span>Somente voos diretos</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="search-panel" data-panel="hotels">
+            <div class="search-card">
+              <div class="fields-row-hotels">
+                <div class="field-group route-field">
+                  <label for="hotel-destination">Cidade ou Hotel</label>
+                  <input type="text" id="hotel-destination" placeholder="Cidade, hotel ou localizacao" autocomplete="off">
+                  <div class="autocomplete-list" id="ac-hotel-destination"></div>
+                </div>
+
+                <div class="field-group">
+                  <label for="hotel-checkin">Check-in</label>
+                  <input type="date" id="hotel-checkin">
+                </div>
+
+                <div class="field-group">
+                  <label for="hotel-checkout">Check-out</label>
+                  <input type="date" id="hotel-checkout">
+                </div>
+
+                <button class="btn-search" type="button" id="search-hotels-button">Buscar hoteis</button>
+              </div>
+
+              <div class="row2 row2-hotels">
+                <div class="field-group">
+                  <label>Hospedes</label>
+                  <div class="passengers-field">
+                    <button class="pass-btn" type="button" id="hotel-guests-minus">&#8722;</button>
+                    <span id="hotel-guests-count">1</span>
+                    <span class="pass-label">hospede(s)</span>
+                    <button class="pass-btn" type="button" id="hotel-guests-plus">+</button>
+                  </div>
+                </div>
+
+                <div class="field-group">
+                  <label for="hotel-rooms">Quartos</label>
+                  <select id="hotel-rooms">
+                    <option value="1">1 quarto</option>
+                    <option value="2">2 quartos</option>
+                    <option value="3">3 quartos</option>
+                    <option value="4">4 quartos</option>
+                    <option value="5">5+ quartos</option>
+                  </select>
+                </div>
+
+                <div class="field-group">
+                  <label for="hotel-affiliate">Afiliado</label>
+                  <select id="hotel-affiliate">
+                    <option value="auto">Automatico</option>
+                    <option value="travelpayouts">Travelpayouts / Booking</option>
+                    <option value="klook">Klook</option>
+                  </select>
+                </div>
+
+                <label class="toggle-box">
+                  <input type="checkbox" id="hotel-wifi">
+                  <span>Com Wi-Fi</span>
+                </label>
+              </div>
             </div>
           </div>
 
           <div class="panel-footer">
             <div class="live-note">
               <span class="live-dot"></span>
-              <span id="live-note-text">Consultando promocoes em cache pela Travelpayouts Data API.</span>
+              <span id="live-note-text">Sistema pronto para buscas.</span>
             </div>
 
             <div class="panel-helper">
@@ -158,7 +225,7 @@
       </div>
       <div class="trust-item">
         <span class="trust-label">Acao imediata</span>
-        <strong>Link de referencia visivel no proprio resultado</strong>
+        <strong>Link de referencia e busca afiliada visiveis no proprio resultado</strong>
       </div>
     </section>
 
@@ -183,7 +250,7 @@
       <div class="results-grid" id="results-grid"></div>
 
       <div class="empty-state" id="empty-state">
-        <div class="empty-icon">&#128270;</div>
+        <div class="empty-icon">&#128269;</div>
         <div class="empty-title">Nenhuma promocao encontrada</div>
         <p>Tente alterar datas, rota ou a opcao de voo direto para ampliar a busca.</p>
       </div>
@@ -191,7 +258,7 @@
   </main>
 
   <footer class="site-footer">
-    Resultados obtidos pela API configurada no ambiente. Os dados podem vir de cache e mudar conforme novas buscas forem indexadas.
+    Voos usam a API configurada no ambiente. Hoteis abrem por link afiliado do parceiro configurado na Travelpayouts.
   </footer>
 </body>
 </html>
