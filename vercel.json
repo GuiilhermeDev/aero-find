@@ -24,6 +24,10 @@
       "dest": "/index.html"
     },
     {
+      "src": "/api/(.*)",
+      "dest": "/api/$1.js"
+    },
+    {
       "handle": "filesystem"
     }
   ]
