@@ -1,607 +1,197 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AeroFind — Busca de Passagens Aéreas</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230A1628'/%3E%3Cpath d='M52 26v-4L32 10 12 22v4l20-5v10L24 34v4l8-2 8 2v-4l-8-3V21l20 5z' fill='%23F5A623'/%3E%3C/svg%3E">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --sky: #0A1628; --accent: #F5A623; --white: #FFFFFF; --muted: #8BA4BE;
-    --card-bg: rgba(255,255,255,0.06); --card-border: rgba(255,255,255,0.12);
-    --input-bg: rgba(255,255,255,0.09); --result-bg: #F0F4F9;
-    --result-card: #FFFFFF; --text-dark: #0A1628; --text-mid: #4A6178;
-  }
-  html { scroll-behavior: smooth; }
-  body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--sky); color: var(--white); min-height: 100vh; overflow-x: hidden; }
-
-  /* Stars */
-  .stars-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-  .star { position: absolute; background: #fff; border-radius: 50%; animation: twinkle var(--d,3s) ease-in-out infinite; opacity: var(--o,0.4); }
-  @keyframes twinkle { 0%,100%{opacity:var(--o)} 50%{opacity:calc(var(--o)*0.25)} }
-
-  /* Header */
-  header { position: relative; z-index: 20; display: flex; align-items: center; justify-content: space-between; padding: 1.2rem 3rem; border-bottom: 1px solid rgba(255,255,255,0.07); backdrop-filter: blur(8px); }
-  .logo { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px; color: var(--white); display: flex; align-items: center; gap: 0.5rem; }
-  .logo-dot { width: 10px; height: 10px; background: var(--accent); border-radius: 50%; }
-  nav a { color: var(--muted); text-decoration: none; font-size: .88rem; margin-left: 2rem; transition: color .2s; }
-  nav a:hover { color: var(--white); }
-  .btn-header { margin-left: 2rem; padding: .5rem 1.2rem; background: var(--accent); color: #1a0800; border: none; border-radius: 20px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: .85rem; font-weight: 600; cursor: pointer; transition: transform .15s, box-shadow .15s; }
-  .btn-header:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(245,166,35,.35); }
-
-  /* Hero */
-  .hero { position: relative; z-index: 5; text-align: center; padding: 4rem 2rem 2rem; }
-  .hero-eyebrow { display: inline-block; font-size: .78rem; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 1rem; }
-  .hero h1 { font-family: 'Syne', sans-serif; font-size: clamp(2.2rem,5vw,3.8rem); font-weight: 800; line-height: 1.1; letter-spacing: -1.5px; margin-bottom: .8rem; }
-  .hero h1 span { color: var(--accent); }
-  .hero p { color: var(--muted); font-size: 1.05rem; font-weight: 300; max-width: 480px; margin: 0 auto 2.5rem; }
-
-  /* Search Card */
-  .search-card { position: relative; z-index: 10; max-width: 860px; margin: 0 auto 2rem; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 20px; padding: 2rem; backdrop-filter: blur(16px); box-shadow: 0 24px 60px rgba(0,0,0,.4); }
-  .trip-type { display: flex; gap: .5rem; margin-bottom: 1.5rem; }
-  .trip-btn { padding: .4rem 1rem; border-radius: 20px; background: transparent; border: 1px solid var(--card-border); color: var(--muted); font-family: 'Plus Jakarta Sans', sans-serif; font-size: .83rem; cursor: pointer; transition: all .2s; }
-  .trip-btn.active, .trip-btn:hover { background: rgba(245,166,35,.15); border-color: rgba(245,166,35,.5); color: var(--accent); }
-  .fields-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: .75rem; align-items: end; }
-  .field-group { display: flex; flex-direction: column; gap: .35rem; position: relative; }
-  .field-group label { font-size: .72rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
-  .field-group input, .field-group select { background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 10px; color: var(--white); padding: .7rem 1rem; font-family: 'Plus Jakarta Sans', sans-serif; font-size: .95rem; outline: none; width: 100%; transition: border-color .2s; -webkit-appearance: none; }
-  .field-group input::placeholder { color: var(--muted); }
-  .field-group input:focus, .field-group select:focus { border-color: rgba(245,166,35,.6); }
-  .field-group select option { background: #0D2040; color: white; }
-  .btn-search { padding: .75rem 1.8rem; background: var(--accent); border: none; border-radius: 10px; color: #1a0800; font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all .2s; display: flex; align-items: center; gap: .4rem; }
-  .btn-search:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(245,166,35,.4); }
-  .btn-search:active { transform: translateY(0); }
-  .row2 { display: flex; gap: .75rem; margin-top: .75rem; align-items: center; }
-  .row2 .field-group { flex: 1; }
-  .passengers-field { display: flex; align-items: center; gap: .6rem; background: var(--input-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: .5rem .75rem; }
-  .pass-btn { width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,.15); border: none; color: white; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .2s; }
-  .pass-btn:hover { background: rgba(245,166,35,.4); }
-  #pass-count { font-size: 1rem; min-width: 20px; text-align: center; }
-
-  /* Autocomplete */
-  .autocomplete-list { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 999; background: #0C1E3A; border: 1px solid rgba(245,166,35,.4); border-radius: 14px; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,.7); max-height: 280px; overflow-y: auto; display: none; }
-  .autocomplete-list.open { display: block; }
-  .autocomplete-list::-webkit-scrollbar { width: 4px; }
-  .autocomplete-list::-webkit-scrollbar-track { background: transparent; }
-  .autocomplete-list::-webkit-scrollbar-thumb { background: rgba(245,166,35,.3); border-radius: 4px; }
-  .ac-item { display: flex; align-items: center; gap: .75rem; padding: .6rem 1rem; cursor: pointer; transition: background .15s; border-bottom: 1px solid rgba(255,255,255,.05); }
-  .ac-item:last-child { border-bottom: none; }
-  .ac-item:hover, .ac-item.highlighted { background: rgba(245,166,35,.1); }
-  .ac-flag { font-size: 1.1rem; flex-shrink: 0; }
-  .ac-iata { font-family: 'Syne', sans-serif; font-size: .9rem; font-weight: 800; color: var(--accent); min-width: 40px; flex-shrink: 0; }
-  .ac-info { display: flex; flex-direction: column; overflow: hidden; }
-  .ac-city { font-size: .85rem; font-weight: 500; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ac-country { font-size: .7rem; color: var(--muted); margin-top: .1rem; }
-
-  /* Sources */
-  .sources-row { position: relative; z-index: 5; max-width: 860px; margin: 0 auto 2rem; display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; padding: 0 .25rem; }
-  .source-tag { display: flex; align-items: center; gap: .4rem; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: 20px; padding: .35rem .85rem; font-size: .78rem; color: var(--muted); cursor: pointer; transition: all .2s; }
-  .source-tag.active { background: rgba(245,166,35,.12); border-color: rgba(245,166,35,.4); color: #F5A623; }
-  .source-tag .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-
-  /* Loading */
-  .loading-state { display: none; text-align: center; padding: 3rem; position: relative; z-index: 5; }
-  .loading-state.visible { display: block; }
-  .plane-loader { font-size: 2.5rem; animation: fly 1.5s ease-in-out infinite; display: inline-block; }
-  @keyframes fly { 0%{transform:translateX(-20px) rotate(-5deg)} 50%{transform:translateX(20px) rotate(5deg)} 100%{transform:translateX(-20px) rotate(-5deg)} }
-  .loading-text { color: var(--muted); margin-top: 1rem; font-size: .95rem; }
-  .loading-dots::after { content: ''; animation: dots 1.4s infinite; }
-  @keyframes dots { 0%{content:''} 33%{content:'.'} 66%{content:'..'} 100%{content:'...'} }
-
-  /* Results */
-  #results-section { background: var(--result-bg); border-radius: 28px 28px 0 0; padding: 2.5rem 2rem 4rem; position: relative; z-index: 5; display: none; }
-  #results-section.visible { display: block; }
-  .results-header { max-width: 860px; margin: 0 auto 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .75rem; }
-  .results-title { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 700; color: var(--text-dark); }
-  .results-subtitle { font-size: .82rem; color: var(--text-mid); margin-top: .25rem; line-height: 1.5; }
-  .filter-bar { display: flex; gap: .5rem; }
-  .filter-btn { padding: .4rem 1rem; border-radius: 20px; border: 1px solid #D0DCE8; background: white; color: var(--text-mid); font-family: 'Plus Jakarta Sans', sans-serif; font-size: .82rem; cursor: pointer; transition: all .2s; }
-  .filter-btn:hover, .filter-btn.active { background: var(--text-dark); color: white; border-color: var(--text-dark); }
-
-  /* Result Cards */
-  .results-grid { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: .9rem; }
-  .result-card { background: var(--result-card); border: 1px solid #DDE7F0; border-radius: 16px; padding: 1.1rem 1.5rem; display: grid; grid-template-columns: 54px 1fr auto; gap: 1.2rem; align-items: center; transition: all .2s; cursor: pointer; animation: slideUp .3s ease both; text-decoration: none; color: inherit; }
-  .result-card:hover { box-shadow: 0 8px 32px rgba(10,22,40,.1); transform: translateY(-2px); border-color: #B4CCE4; }
-  @keyframes slideUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
-
-  .airline-logo { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-size: .7rem; font-weight: 800; color: white; letter-spacing: .5px; flex-shrink: 0; }
-
-  /* Flight info */
-  .flight-info { display: flex; align-items: center; gap: 1.1rem; }
-  .time-block { text-align: center; flex-shrink: 0; }
-
-  /* Horário — destaque máximo */
-  .time-big {
-    font-family: 'Syne', sans-serif;
-    font-size: 1.6rem;
-    font-weight: 800;
-    color: #0A1628;
-    letter-spacing: -0.5px;
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-  }
-  .time-city {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: .65rem; font-weight: 700;
-    letter-spacing: 1.2px; text-transform: uppercase;
-    color: #7A9AB4; margin-top: .3rem;
-  }
-
-  .flight-path { flex: 1; display: flex; flex-direction: column; align-items: center; gap: .22rem; min-width: 80px; }
-  .path-duration { font-family: 'Plus Jakarta Sans', sans-serif; font-size: .7rem; font-weight: 600; color: #7A9AB4; letter-spacing: .4px; }
-  .path-line { width: 100%; display: flex; align-items: center; gap: 4px; }
-  .path-line .line { flex: 1; height: 1.5px; background: #D4E2EC; }
-  .path-stops { font-family: 'Plus Jakarta Sans', sans-serif; font-size: .68rem; font-weight: 700; letter-spacing: .3px; }
-  .stops-direct { color: #1A9B6A; }
-  .stops-conn { color: #C47D0A; }
-
-  /* Bloco preço */
-  .price-block { text-align: right; min-width: 148px; flex-shrink: 0; }
-  .price-source { font-family: 'Plus Jakarta Sans', sans-serif; font-size: .65rem; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; color: #8FA6B8; margin-bottom: .2rem; }
-
-  /* Preço principal */
-  .price-wrap { display: flex; align-items: flex-start; justify-content: flex-end; gap: 2px; line-height: 1; margin-bottom: .15rem; }
-  .price-currency { font-family: 'Plus Jakarta Sans', sans-serif; font-size: .9rem; font-weight: 700; color: #3A5570; padding-top: .3rem; }
-  .price-integer { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; color: #0A1628; letter-spacing: -1.5px; font-variant-numeric: tabular-nums; }
-  .price-per { font-family: 'Plus Jakarta Sans', sans-serif; font-size: .65rem; font-weight: 400; color: #8FA6B8; }
-
-  .badges { display: flex; gap: .3rem; justify-content: flex-end; margin: .35rem 0 .4rem; flex-wrap: wrap; }
-  .badge { font-family: 'Plus Jakarta Sans', sans-serif; font-size: .63rem; font-weight: 700; letter-spacing: .3px; border-radius: 20px; padding: .2rem .55rem; line-height: 1.5; }
-  .badge-best { background: #E0F5EB; color: #126B3A; }
-  .badge-fast { background: #EEF0FF; color: #3730A3; }
-
-  .btn-buy { display: inline-block; padding: .42rem 1rem; background: var(--accent); border: none; border-radius: 8px; color: #1a0800; font-family: 'Plus Jakarta Sans', sans-serif; font-size: .78rem; font-weight: 700; cursor: pointer; transition: all .15s; text-decoration: none; }
-  .btn-buy:hover { background: #ffba47; }
-
-  .empty-state { text-align: center; padding: 3rem; color: var(--text-mid); display: none; }
-  .empty-state.visible { display: block; }
-
-  footer { position: relative; z-index: 5; text-align: center; padding: 1.5rem; color: var(--muted); font-size: .78rem; border-top: 1px solid rgba(255,255,255,.06); }
-
-  @media(max-width:700px){
-    header{padding:1rem 1.2rem} nav{display:none}
-    .hero{padding:2.5rem 1rem 1.5rem}
-    .fields-row{grid-template-columns:1fr 1fr}
-    .btn-search{grid-column:1/-1;justify-content:center}
-    .search-card{margin:0 1rem 2rem;padding:1.2rem}
-    .sources-row{padding:0 1rem}
-    .result-card{grid-template-columns:48px 1fr;padding:.9rem 1rem}
-    .price-block{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;text-align:left;min-width:0}
-    .price-wrap{justify-content:flex-start}
-    .badges{justify-content:flex-start}
-    #results-section{padding:1.5rem 1rem 3rem}
-    .results-header{flex-direction:column;align-items:flex-start}
-    .time-big{font-size:1.3rem}
-    .price-integer{font-size:1.6rem}
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AeroFind | Busca de promocoes de passagens</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230A1628'/%3E%3Cpath d='M52 26v-4L32 10 12 22v4l20-5v10L24 34v4l8-2 8 2v-4l-8-3V21l20 5z' fill='%23F5A623'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="/app.js" defer></script>
 </head>
 <body>
+  <div class="stars-bg" id="stars"></div>
+  <div class="ambient-grid"></div>
 
-<div class="stars-bg" id="stars"></div>
-
-<header>
-  <div class="logo"><span class="logo-dot"></span>AeroFind</div>
-  <nav>
-    <a href="#">Início</a><a href="#">Hotéis</a><a href="#">Pacotes</a><a href="#">Alertas</a>
-  </nav>
-  <button class="btn-header" onclick="showAlertModal()">🔔 Alertas de preço</button>
-</header>
-
-<section class="hero">
-  <span class="hero-eyebrow">✈ Comparador de passagens</span>
-  <h1>Voe mais longe,<br>pague <span>muito menos</span></h1>
-  <p>Buscamos em dezenas de sites ao mesmo tempo para você encontrar a melhor oferta.</p>
-</section>
-
-<div class="search-card">
-  <div class="trip-type">
-    <button class="trip-btn active" data-type="ida-volta" onclick="setTrip(this)">Ida e volta</button>
-    <button class="trip-btn" data-type="so-ida" onclick="setTrip(this)">Só ida</button>
-    <button class="trip-btn" data-type="multiplas" onclick="setTrip(this)">Múltiplas cidades</button>
-  </div>
-  <div class="fields-row">
-    <div class="field-group">
-      <label>Origem</label>
-      <input type="text" id="origin" placeholder="Cidade ou código IATA" autocomplete="off">
-      <div class="autocomplete-list" id="ac-origin"></div>
+  <header class="site-header">
+    <div class="brand-block">
+      <div class="logo"><span class="logo-dot"></span>AeroFind</div>
+      <div class="brand-caption">Busca serverless de tarifas em cache para rotas do mundo inteiro</div>
     </div>
-    <div class="field-group">
-      <label>Destino</label>
-      <input type="text" id="dest" placeholder="Cidade ou código IATA" autocomplete="off">
-      <div class="autocomplete-list" id="ac-dest"></div>
+
+    <div class="header-pills">
+      <span class="header-pill">Travelpayouts</span>
+      <span class="header-pill">Aeroportos globais</span>
+      <span class="header-pill">Links prontos</span>
     </div>
-    <div class="field-group">
-      <label>Ida</label>
-      <input type="date" id="date-go">
-    </div>
-    <div class="field-group" id="return-field">
-      <label>Volta</label>
-      <input type="date" id="date-back">
-    </div>
-    <button class="btn-search" onclick="searchFlights()">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      Buscar
-    </button>
-  </div>
-  <div class="row2">
-    <div class="field-group">
-      <label>Classe</label>
-      <select id="cabin">
-        <option value="economy">Econômica</option>
-        <option value="premium">Premium Economy</option>
-        <option value="business">Executiva (Business)</option>
-        <option value="first">Primeira Classe</option>
-      </select>
-    </div>
-    <div class="field-group">
-      <label>Passageiros</label>
-      <div class="passengers-field">
-        <button class="pass-btn" onclick="changePass(-1)">−</button>
-        <span id="pass-count">1</span>
-        <span style="font-size:.85rem;color:var(--muted);">adulto(s)</span>
-        <button class="pass-btn" onclick="changePass(1)">+</button>
-      </div>
-    </div>
-  </div>
-</div>
+  </header>
 
-<div class="sources-row">
-  <span style="font-size:.78rem;color:var(--muted);">Buscando em:</span>
-  <div class="source-tag active" onclick="toggleSource(this)"><span class="dot"></span>Google Flights</div>
-  <div class="source-tag active" onclick="toggleSource(this)"><span class="dot"></span>Decolar</div>
-  <div class="source-tag active" onclick="toggleSource(this)"><span class="dot"></span>Kayak</div>
-  <div class="source-tag active" onclick="toggleSource(this)"><span class="dot"></span>Skyscanner</div>
-  <div class="source-tag active" onclick="toggleSource(this)"><span class="dot"></span>Azul</div>
-  <div class="source-tag active" onclick="toggleSource(this)"><span class="dot"></span>LATAM</div>
-  <div class="source-tag active" onclick="toggleSource(this)"><span class="dot"></span>Gol</div>
-  <div class="source-tag active" onclick="toggleSource(this)"><span class="dot"></span>Passagens Promo</div>
-</div>
+  <main class="page-shell">
+    <section class="hero-grid">
+      <div class="hero-copy">
+        <span class="hero-eyebrow">Comparador de passagens</span>
+        <h1>Pesquise rotas reais com uma interface mais clara e pronta para conversao.</h1>
+        <p>
+          Encontre promocoes por cidade, nome do aeroporto ou codigo IATA, compare as menores tarifas
+          em cache e abra a referencia da oferta sem sair do fluxo.
+        </p>
 
-<div class="loading-state" id="loading">
-  <div class="plane-loader">✈</div>
-  <div class="loading-text">Buscando as melhores ofertas<span class="loading-dots"></span></div>
-  <p style="font-size:.8rem;color:var(--muted);margin-top:.5rem;">Consultando Google Flights, Decolar, Kayak, Skyscanner...</p>
-</div>
-
-<section id="results-section">
-  <div class="results-header">
-    <div>
-      <div class="results-title" id="results-title">Resultados encontrados</div>
-      <div class="results-subtitle" id="results-subtitle"></div>
-    </div>
-    <div class="filter-bar">
-      <button class="filter-btn active" onclick="sortResults('price',this)">Menor preço</button>
-      <button class="filter-btn" onclick="sortResults('duration',this)">Mais rápido</button>
-      <button class="filter-btn" onclick="sortResults('best',this)">Custo-benefício</button>
-    </div>
-  </div>
-  <div class="results-grid" id="results-grid"></div>
-  <div class="empty-state" id="empty-state">
-    <div style="font-size:2.5rem;margin-bottom:1rem;">🔍</div>
-    <div style="font-weight:600;color:#0A1628;margin-bottom:.4rem;">Nenhum voo encontrado</div>
-    <p>Tente datas ou destinos diferentes.</p>
-  </div>
-</section>
-
-<footer>AeroFind compara preços em tempo real. Os valores são ilustrativos. © 2025 AeroFind</footer>
-
-<script>
-// Stars
-const starsEl=document.getElementById('stars');
-for(let i=0;i<120;i++){
-  const s=document.createElement('div');s.className='star';
-  const sz=Math.random()*2+1;
-  s.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--d:${(Math.random()*4+2).toFixed(1)}s;--o:${(Math.random()*.6+.15).toFixed(2)};animation-delay:${(Math.random()*5).toFixed(1)}s`;
-  starsEl.appendChild(s);
-}
-
-// Dates
-const today=new Date(),fmt=d=>d.toISOString().split('T')[0];
-const go=new Date(today);go.setDate(today.getDate()+7);
-const bk=new Date(today);bk.setDate(today.getDate()+14);
-document.getElementById('date-go').value=fmt(go);
-document.getElementById('date-back').value=fmt(bk);
-document.getElementById('date-go').min=fmt(today);
-document.getElementById('date-back').min=fmt(go);
-
-let passengers=1,tripType='ida-volta';
-function setTrip(btn){document.querySelectorAll('.trip-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');tripType=btn.dataset.type;const rf=document.getElementById('return-field');rf.style.opacity=tripType==='so-ida'?'0.4':'1';rf.querySelector('input').disabled=tripType==='so-ida';}
-function changePass(d){passengers=Math.max(1,Math.min(9,passengers+d));document.getElementById('pass-count').textContent=passengers;}
-function toggleSource(el){el.classList.toggle('active');}
-function showAlertModal(){alert('🔔 Você será notificado quando o preço cair para a rota desejada!\n\n(Disponível na versão completa.)');}
-
-// ═══════════════════════════════════
-// BANCO DE AEROPORTOS
-// ═══════════════════════════════════
-const AIRPORTS=[
-  // Brasil
-  {iata:'GRU',city:'São Paulo — Guarulhos',country:'Brasil',flag:'🇧🇷'},
-  {iata:'CGH',city:'São Paulo — Congonhas',country:'Brasil',flag:'🇧🇷'},
-  {iata:'VCP',city:'Campinas — Viracopos',country:'Brasil',flag:'🇧🇷'},
-  {iata:'GIG',city:'Rio de Janeiro — Galeão',country:'Brasil',flag:'🇧🇷'},
-  {iata:'SDU',city:'Rio de Janeiro — Santos Dumont',country:'Brasil',flag:'🇧🇷'},
-  {iata:'BSB',city:'Brasília',country:'Brasil',flag:'🇧🇷'},
-  {iata:'SSA',city:'Salvador',country:'Brasil',flag:'🇧🇷'},
-  {iata:'FOR',city:'Fortaleza',country:'Brasil',flag:'🇧🇷'},
-  {iata:'REC',city:'Recife',country:'Brasil',flag:'🇧🇷'},
-  {iata:'MAO',city:'Manaus',country:'Brasil',flag:'🇧🇷'},
-  {iata:'CWB',city:'Curitiba',country:'Brasil',flag:'🇧🇷'},
-  {iata:'POA',city:'Porto Alegre',country:'Brasil',flag:'🇧🇷'},
-  {iata:'BEL',city:'Belém',country:'Brasil',flag:'🇧🇷'},
-  {iata:'FLN',city:'Florianópolis',country:'Brasil',flag:'🇧🇷'},
-  {iata:'NAT',city:'Natal',country:'Brasil',flag:'🇧🇷'},
-  {iata:'MCZ',city:'Maceió',country:'Brasil',flag:'🇧🇷'},
-  {iata:'THE',city:'Teresina',country:'Brasil',flag:'🇧🇷'},
-  {iata:'GYN',city:'Goiânia',country:'Brasil',flag:'🇧🇷'},
-  {iata:'CGR',city:'Campo Grande',country:'Brasil',flag:'🇧🇷'},
-  {iata:'CGB',city:'Cuiabá',country:'Brasil',flag:'🇧🇷'},
-  {iata:'PMW',city:'Palmas',country:'Brasil',flag:'🇧🇷'},
-  {iata:'VIX',city:'Vitória',country:'Brasil',flag:'🇧🇷'},
-  {iata:'BVB',city:'Boa Vista',country:'Brasil',flag:'🇧🇷'},
-  {iata:'PVH',city:'Porto Velho',country:'Brasil',flag:'🇧🇷'},
-  {iata:'MCP',city:'Macapá',country:'Brasil',flag:'🇧🇷'},
-  {iata:'RBR',city:'Rio Branco',country:'Brasil',flag:'🇧🇷'},
-  {iata:'SLZ',city:'São Luís',country:'Brasil',flag:'🇧🇷'},
-  {iata:'JPA',city:'João Pessoa',country:'Brasil',flag:'🇧🇷'},
-  {iata:'AJU',city:'Aracaju',country:'Brasil',flag:'🇧🇷'},
-  {iata:'IOS',city:'Ilhéus',country:'Brasil',flag:'🇧🇷'},
-  {iata:'BPS',city:'Porto Seguro',country:'Brasil',flag:'🇧🇷'},
-  {iata:'CFB',city:'Cabo Frio',country:'Brasil',flag:'🇧🇷'},
-  {iata:'LDB',city:'Londrina',country:'Brasil',flag:'🇧🇷'},
-  {iata:'MAB',city:'Marabá',country:'Brasil',flag:'🇧🇷'},
-  {iata:'IGU',city:'Foz do Iguaçu',country:'Brasil',flag:'🇧🇷'},
-  // Europa
-  {iata:'LIS',city:'Lisboa',country:'Portugal',flag:'🇵🇹'},
-  {iata:'OPO',city:'Porto',country:'Portugal',flag:'🇵🇹'},
-  {iata:'FAO',city:'Faro',country:'Portugal',flag:'🇵🇹'},
-  {iata:'MAD',city:'Madrid — Barajas',country:'Espanha',flag:'🇪🇸'},
-  {iata:'BCN',city:'Barcelona — El Prat',country:'Espanha',flag:'🇪🇸'},
-  {iata:'CDG',city:'Paris — Charles de Gaulle',country:'França',flag:'🇫🇷'},
-  {iata:'ORY',city:'Paris — Orly',country:'França',flag:'🇫🇷'},
-  {iata:'LHR',city:'Londres — Heathrow',country:'Reino Unido',flag:'🇬🇧'},
-  {iata:'LGW',city:'Londres — Gatwick',country:'Reino Unido',flag:'🇬🇧'},
-  {iata:'STN',city:'Londres — Stansted',country:'Reino Unido',flag:'🇬🇧'},
-  {iata:'FRA',city:'Frankfurt',country:'Alemanha',flag:'🇩🇪'},
-  {iata:'MUC',city:'Munique',country:'Alemanha',flag:'🇩🇪'},
-  {iata:'AMS',city:'Amsterdã — Schiphol',country:'Holanda',flag:'🇳🇱'},
-  {iata:'FCO',city:'Roma — Fiumicino',country:'Itália',flag:'🇮🇹'},
-  {iata:'MXP',city:'Milão — Malpensa',country:'Itália',flag:'🇮🇹'},
-  {iata:'VCE',city:'Veneza',country:'Itália',flag:'🇮🇹'},
-  {iata:'ZRH',city:'Zurique',country:'Suíça',flag:'🇨🇭'},
-  {iata:'VIE',city:'Viena',country:'Áustria',flag:'🇦🇹'},
-  {iata:'ATH',city:'Atenas',country:'Grécia',flag:'🇬🇷'},
-  {iata:'CPH',city:'Copenhague',country:'Dinamarca',flag:'🇩🇰'},
-  {iata:'ARN',city:'Estocolmo — Arlanda',country:'Suécia',flag:'🇸🇪'},
-  // Américas
-  {iata:'JFK',city:'Nova York — JFK',country:'EUA',flag:'🇺🇸'},
-  {iata:'EWR',city:'Nova York — Newark',country:'EUA',flag:'🇺🇸'},
-  {iata:'LGA',city:'Nova York — LaGuardia',country:'EUA',flag:'🇺🇸'},
-  {iata:'MIA',city:'Miami',country:'EUA',flag:'🇺🇸'},
-  {iata:'LAX',city:'Los Angeles',country:'EUA',flag:'🇺🇸'},
-  {iata:'ORD',city:'Chicago — O\'Hare',country:'EUA',flag:'🇺🇸'},
-  {iata:'ATL',city:'Atlanta',country:'EUA',flag:'🇺🇸'},
-  {iata:'IAD',city:'Washington D.C. — Dulles',country:'EUA',flag:'🇺🇸'},
-  {iata:'SFO',city:'San Francisco',country:'EUA',flag:'🇺🇸'},
-  {iata:'MCO',city:'Orlando',country:'EUA',flag:'🇺🇸'},
-  {iata:'YYZ',city:'Toronto — Pearson',country:'Canadá',flag:'🇨🇦'},
-  {iata:'YUL',city:'Montreal',country:'Canadá',flag:'🇨🇦'},
-  {iata:'MEX',city:'Cidade do México',country:'México',flag:'🇲🇽'},
-  {iata:'CUN',city:'Cancún',country:'México',flag:'🇲🇽'},
-  {iata:'EZE',city:'Buenos Aires — Ezeiza',country:'Argentina',flag:'🇦🇷'},
-  {iata:'AEP',city:'Buenos Aires — Aeroparque',country:'Argentina',flag:'🇦🇷'},
-  {iata:'SCL',city:'Santiago do Chile',country:'Chile',flag:'🇨🇱'},
-  {iata:'BOG',city:'Bogotá — El Dorado',country:'Colômbia',flag:'🇨🇴'},
-  {iata:'LIM',city:'Lima — Jorge Chávez',country:'Peru',flag:'🇵🇪'},
-  {iata:'MVD',city:'Montevidéu',country:'Uruguai',flag:'🇺🇾'},
-  {iata:'ASU',city:'Assunção',country:'Paraguai',flag:'🇵🇾'},
-  {iata:'GYE',city:'Guayaquil',country:'Equador',flag:'🇪🇨'},
-  {iata:'HAV',city:'Havana',country:'Cuba',flag:'🇨🇺'},
-  // Oriente Médio / Ásia / Oceania / África
-  {iata:'DXB',city:'Dubai',country:'Emirados Árabes',flag:'🇦🇪'},
-  {iata:'AUH',city:'Abu Dhabi',country:'Emirados Árabes',flag:'🇦🇪'},
-  {iata:'DOH',city:'Doha — Hamad',country:'Catar',flag:'🇶🇦'},
-  {iata:'NRT',city:'Tóquio — Narita',country:'Japão',flag:'🇯🇵'},
-  {iata:'HND',city:'Tóquio — Haneda',country:'Japão',flag:'🇯🇵'},
-  {iata:'ICN',city:'Seul — Incheon',country:'Coreia do Sul',flag:'🇰🇷'},
-  {iata:'BKK',city:'Bangkok — Suvarnabhumi',country:'Tailândia',flag:'🇹🇭'},
-  {iata:'SIN',city:'Singapura — Changi',country:'Singapura',flag:'🇸🇬'},
-  {iata:'HKG',city:'Hong Kong',country:'Hong Kong',flag:'🇭🇰'},
-  {iata:'PEK',city:'Pequim — Capital',country:'China',flag:'🇨🇳'},
-  {iata:'PVG',city:'Xangai — Pudong',country:'China',flag:'🇨🇳'},
-  {iata:'DEL',city:'Nova Delhi — Indira Gandhi',country:'Índia',flag:'🇮🇳'},
-  {iata:'BOM',city:'Mumbai — Chhatrapati Shivaji',country:'Índia',flag:'🇮🇳'},
-  {iata:'SYD',city:'Sydney — Kingsford Smith',country:'Austrália',flag:'🇦🇺'},
-  {iata:'MEL',city:'Melbourne — Tullamarine',country:'Austrália',flag:'🇦🇺'},
-  {iata:'CPT',city:'Cidade do Cabo',country:'África do Sul',flag:'🇿🇦'},
-  {iata:'JNB',city:'Joanesburgo — O.R. Tambo',country:'África do Sul',flag:'🇿🇦'},
-  {iata:'NBO',city:'Nairóbi — Jomo Kenyatta',country:'Quênia',flag:'🇰🇪'},
-  {iata:'CAI',city:'Cairo',country:'Egito',flag:'🇪🇬'},
-  {iata:'CMN',city:'Casablanca — Mohammed V',country:'Marrocos',flag:'🇲🇦'},
-];
-
-function normalize(s){ return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
-function searchAirports(q){
-  const n=normalize(q);
-  if(n.length<2) return [];
-  return AIRPORTS.filter(a=>normalize(a.iata).includes(n)||normalize(a.city).includes(n)||normalize(a.country).includes(n)).slice(0,8);
-}
-
-const acHL={origin:-1,dest:-1};
-
-function setupAC(inputId,listId,key){
-  const inp=document.getElementById(inputId);
-  const lst=document.getElementById(listId);
-
-  inp.addEventListener('input',()=>{
-    const res=searchAirports(inp.value.trim());
-    acHL[key]=-1;
-    renderAC(lst,res,inp,key);
-    lst.classList.toggle('open',res.length>0&&inp.value.trim().length>=2);
-  });
-
-  inp.addEventListener('keydown',e=>{
-    const items=lst.querySelectorAll('.ac-item');
-    if(!items.length) return;
-    if(e.key==='ArrowDown'){e.preventDefault();acHL[key]=Math.min(acHL[key]+1,items.length-1);hilite(lst,acHL[key]);}
-    else if(e.key==='ArrowUp'){e.preventDefault();acHL[key]=Math.max(acHL[key]-1,-1);hilite(lst,acHL[key]);}
-    else if(e.key==='Enter'&&acHL[key]>=0){e.stopPropagation();items[acHL[key]].click();}
-    else if(e.key==='Escape'){lst.classList.remove('open');}
-  });
-
-  document.addEventListener('click',e=>{if(!inp.contains(e.target)&&!lst.contains(e.target))lst.classList.remove('open');});
-}
-
-function hilite(lst,idx){lst.querySelectorAll('.ac-item').forEach((el,i)=>el.classList.toggle('highlighted',i===idx));}
-
-function renderAC(lst,results,inp,key){
-  lst.innerHTML='';
-  results.forEach(a=>{
-    const item=document.createElement('div');item.className='ac-item';
-    item.innerHTML=`<span class="ac-flag">${a.flag}</span><span class="ac-iata">${a.iata}</span><span class="ac-info"><span class="ac-city">${a.city}</span><span class="ac-country">${a.country}</span></span>`;
-    item.addEventListener('mousedown',e=>e.preventDefault());
-    item.addEventListener('click',()=>{inp.value=`${a.iata} — ${a.city}`;lst.classList.remove('open');});
-    lst.appendChild(item);
-  });
-}
-
-setupAC('origin','ac-origin','origin');
-setupAC('dest','ac-dest','dest');
-
-// Utilitários
-function randInt(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
-function randEl(arr){return arr[Math.floor(Math.random()*arr.length)];}
-function extractIata(v){const m=v.trim().match(/^([A-Z]{3})/);return m?m[1]:v.trim().toUpperCase().slice(0,3);}
-
-const AIRLINES=[
-  {code:'LA',bg:'#B00000'},{code:'AD',bg:'#0032A0'},{code:'G3',bg:'#E55A00'},
-  {code:'AA',bg:'#005DAA'},{code:'TP',bg:'#006B3C'},{code:'EK',bg:'#B5860C'},
-];
-const SOURCES=['Google Flights','Decolar','Kayak','Skyscanner','Passagens Promo'];
-
-function generateFlights(origin,dest,date,cabin){
-  const mul={economy:1,premium:1.8,business:3.2,first:5.5}[cabin]||1;
-  const base=randInt(420,1800)*mul;
-  const out=[];
-  for(let i=0;i<randInt(5,9);i++){
-    const al=randEl(AIRLINES);
-    const dH=randInt(5,21),dM=randEl([0,15,30,45]);
-    const durH=randInt(1,11),durM=randEl([0,20,40]);
-    const aH=(dH+durH)%24,aM=(dM+durM)%60;
-    const price=Math.round(base*(0.85+Math.random()*.4)*passengers);
-    const source=randEl(SOURCES);
-    out.push({al,origin:origin.toUpperCase(),dest:dest.toUpperCase(),
-      dep:`${String(dH).padStart(2,'0')}:${String(dM).padStart(2,'0')}`,
-      arr:`${String(aH).padStart(2,'0')}:${String(aM).padStart(2,'0')}`,
-      dur:`${durH}h${durM>0?durM+'min':''}`,durMins:durH*60+durM,
-      stops:randInt(0,2),price,source,url:buildURL(source,origin,dest,date)});
-  }
-  return out.sort((a,b)=>a.price-b.price);
-}
-
-function buildURL(src,o,d,date){
-  const oe=encodeURIComponent(o),de=encodeURIComponent(d);
-  return {'Google Flights':`https://www.google.com/travel/flights?q=Flights+from+${oe}+to+${de}`,
-    'Decolar':`https://www.decolar.com/shop/flights/results/ROUND_TRIP/${oe}/${de}/${date||''}`,
-    'Kayak':`https://www.kayak.com.br/flights/${oe}-${de}/${date||''}`,
-    'Skyscanner':`https://www.skyscanner.com.br/transporte/voos/${o.toLowerCase()}/${d.toLowerCase()}/${date||''}/`,
-    'Passagens Promo':`https://www.passagenspromo.com.br/passagens/${oe}-${de}`}[src]||'#';
-}
-
-let currentResults=[];
-function sortResults(type,btn){
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
-  let s=[...currentResults];
-  if(type==='price')s.sort((a,b)=>a.price-b.price);
-  else if(type==='duration')s.sort((a,b)=>a.durMins-b.durMins);
-  else s.sort((a,b)=>(a.price/(1+a.durMins/60))-(b.price/(1+b.durMins/60)));
-  renderResults(s);
-}
-
-function renderResults(data){
-  const grid=document.getElementById('results-grid');
-  grid.innerHTML='';
-  if(!data.length){document.getElementById('empty-state').classList.add('visible');return;}
-  document.getElementById('empty-state').classList.remove('visible');
-  const minP=Math.min(...data.map(r=>r.price));
-  const minD=Math.min(...data.map(r=>r.durMins));
-  data.forEach((r,i)=>{
-    const isBest=r.price===minP,isFast=r.durMins===minD;
-    const card=document.createElement('a');
-    card.className='result-card';card.href=r.url;card.target='_blank';card.rel='noopener noreferrer';
-    card.style.animationDelay=`${i*.06}s`;
-    // Separar inteiro de centavos para tipografia diferenciada
-    const parts=r.price.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});
-    card.innerHTML=`
-      <div class="airline-logo" style="background:${r.al.bg}">${r.al.code}</div>
-      <div class="flight-info">
-        <div class="time-block">
-          <div class="time-big">${r.dep}</div>
-          <div class="time-city">${r.origin}</div>
-        </div>
-        <div class="flight-path">
-          <div class="path-duration">${r.dur}</div>
-          <div class="path-line">
-            <div class="line"></div>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#B8C9D8"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>
-            <div class="line"></div>
+        <div class="hero-points">
+          <div class="hero-point">
+            <span class="hero-point-title">Cobertura global</span>
+            <span class="hero-point-text">Sugestoes com aeroportos do mundo todo, cidade e codigo IATA.</span>
           </div>
-          <div class="path-stops ${r.stops===0?'stops-direct':'stops-conn'}">${r.stops===0?'Direto':r.stops===1?'1 escala':'2 escalas'}</div>
+          <div class="hero-point">
+            <span class="hero-point-title">Pesquisa enxuta</span>
+            <span class="hero-point-text">Origem e destino destacados para reduzir erro e acelerar a busca.</span>
+          </div>
+          <div class="hero-point">
+            <span class="hero-point-title">Saida rapida</span>
+            <span class="hero-point-text">Resultados priorizados por preco e acesso direto a referencia da oferta.</span>
+          </div>
         </div>
-        <div class="time-block">
-          <div class="time-big">${r.arr}</div>
-          <div class="time-city">${r.dest}</div>
+
+        <div class="hero-marquee" aria-label="Exemplos de rotas">
+          <span>GRU para LIS</span>
+          <span>GIG para MIA</span>
+          <span>CGH para BUE</span>
+          <span>BSB para MAD</span>
         </div>
       </div>
-      <div class="price-block">
-        <div class="price-source">${r.source}</div>
-        <div class="price-wrap">
-          <span class="price-currency">R$</span>
-          <span class="price-integer">${parts}</span>
+
+      <div class="hero-panel">
+        <div class="panel-heading">
+          <span class="panel-kicker">Painel de busca</span>
+          <h2>Monte sua rota</h2>
+          <p>Campos maiores, busca assistida e foco total na consulta.</p>
         </div>
-        <div class="price-per">por ${passengers} passageiro${passengers>1?'s':''}</div>
-        <div class="badges">
-          ${isBest?'<span class="badge badge-best">✓ Melhor preço</span>':''}
-          ${isFast&&!isBest?'<span class="badge badge-fast">⚡ Mais rápido</span>':''}
+
+        <section class="search-shell">
+          <div class="search-card">
+            <div class="trip-type" id="trip-type">
+              <button class="trip-btn active" type="button" data-type="round-trip">Ida e volta</button>
+              <button class="trip-btn" type="button" data-type="one-way">So ida</button>
+            </div>
+
+            <div class="fields-row">
+              <div class="field-group route-field route-field-origin">
+                <label for="origin">Origem</label>
+                <input type="text" id="origin" placeholder="Cidade ou codigo IATA" autocomplete="off">
+                <div class="autocomplete-list" id="ac-origin"></div>
+              </div>
+
+              <button class="swap-btn" type="button" id="swap-route" aria-label="Inverter origem e destino" title="Inverter origem e destino">
+                &#8646;
+              </button>
+
+              <div class="field-group route-field route-field-destination">
+                <label for="destination">Destino</label>
+                <input type="text" id="destination" placeholder="Cidade ou codigo IATA" autocomplete="off">
+                <div class="autocomplete-list" id="ac-destination"></div>
+              </div>
+
+              <div class="field-group departure-field">
+                <label for="departure-date">Ida</label>
+                <input type="date" id="departure-date">
+              </div>
+
+              <div class="field-group" id="return-group">
+                <label for="return-date">Volta</label>
+                <input type="date" id="return-date">
+              </div>
+
+              <button class="btn-search" type="button" id="search-button">Buscar promocoes</button>
+            </div>
+
+            <div class="row2">
+              <div class="field-group">
+                <label for="cabin">Classe</label>
+                <select id="cabin">
+                  <option value="ECONOMY">Economica</option>
+                  <option value="PREMIUM_ECONOMY">Premium Economy</option>
+                  <option value="BUSINESS">Executiva</option>
+                  <option value="FIRST">Primeira Classe</option>
+                </select>
+              </div>
+
+              <div class="field-group">
+                <label>Passageiros</label>
+                <div class="passengers-field">
+                  <button class="pass-btn" type="button" id="pass-minus">&#8722;</button>
+                  <span id="pass-count">1</span>
+                  <span class="pass-label">adulto(s)</span>
+                  <button class="pass-btn" type="button" id="pass-plus">+</button>
+                </div>
+              </div>
+
+              <label class="toggle-box">
+                <input type="checkbox" id="non-stop">
+                <span>Somente voos diretos</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="panel-footer">
+            <div class="live-note">
+              <span class="live-dot"></span>
+              <span id="live-note-text">Consultando promocoes em cache pela Travelpayouts Data API.</span>
+            </div>
+
+            <div class="panel-helper">
+              Digite cidade, aeroporto ou IATA. Exemplo: Sao Paulo (GRU), London (LHR), Tokyo (HND).
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="trust-strip" aria-label="Destaques da pagina">
+      <div class="trust-item">
+        <span class="trust-label">Busca inteligente</span>
+        <strong>Origem e destino com autocomplete global</strong>
+      </div>
+      <div class="trust-item">
+        <span class="trust-label">Leitura rapida</span>
+        <strong>Tarifas ordenadas e pagina focada em comparacao</strong>
+      </div>
+      <div class="trust-item">
+        <span class="trust-label">Acao imediata</span>
+        <strong>Link de referencia visivel no proprio resultado</strong>
+      </div>
+    </section>
+
+    <section class="feedback-shell">
+      <div class="loading-state" id="loading">
+        <div class="plane-loader">&#9992;</div>
+        <div class="loading-text">Buscando promocoes disponiveis<span class="loading-dots"></span></div>
+      </div>
+
+      <div class="error-state" id="error-state"></div>
+    </section>
+
+    <section class="results-section" id="results-section">
+      <div class="results-header">
+        <div class="results-intro">
+          <span class="results-kicker">Resultados da pesquisa</span>
+          <div class="results-title" id="results-title">Nenhuma busca executada</div>
+          <div class="results-subtitle" id="results-subtitle">Preencha os dados e faca a primeira consulta.</div>
         </div>
-        <a class="btn-buy" href="${r.url}" target="_blank" rel="noopener">Ver oferta →</a>
-      </div>`;
-    grid.appendChild(card);
-  });
-}
+      </div>
 
-function searchFlights(){
-  const oRaw=document.getElementById('origin').value.trim();
-  const dRaw=document.getElementById('dest').value.trim();
-  const origin=extractIata(oRaw),dest=extractIata(dRaw);
-  const dateGo=document.getElementById('date-go').value;
-  const cabin=document.getElementById('cabin').value;
-  if(!oRaw||!dRaw){alert('Informe a origem e o destino.');return;}
-  if(!dateGo){alert('Selecione a data de ida.');return;}
-  document.getElementById('results-section').classList.remove('visible');
-  document.getElementById('loading').classList.add('visible');
-  const activeSrc=[...document.querySelectorAll('.source-tag.active')].map(el=>el.textContent.trim());
-  if(!activeSrc.length){document.getElementById('loading').classList.remove('visible');alert('Selecione ao menos uma fonte.');return;}
-  setTimeout(()=>{
-    document.getElementById('loading').classList.remove('visible');
-    currentResults=generateFlights(origin,dest,dateGo,cabin);
-    const cN={economy:'Econômica',premium:'Premium Economy',business:'Executiva',first:'Primeira Classe'};
-    const dF=new Date(dateGo+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
-    document.getElementById('results-title').textContent=`${origin} → ${dest}`;
-    document.getElementById('results-subtitle').textContent=`${currentResults.length} voos · ${dF} · ${cN[cabin]} · ${passengers} pax · ${activeSrc.join(', ')}`;
-    document.getElementById('results-section').classList.add('visible');
-    renderResults(currentResults);
-    setTimeout(()=>document.getElementById('results-section').scrollIntoView({behavior:'smooth',block:'start'}),100);
-  },randInt(1800,2800));
-}
+      <div class="results-grid" id="results-grid"></div>
 
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.activeElement.type!=='text')searchFlights();});
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">&#128270;</div>
+        <div class="empty-title">Nenhuma promocao encontrada</div>
+        <p>Tente alterar datas, rota ou a opcao de voo direto para ampliar a busca.</p>
+      </div>
+    </section>
+  </main>
 
-// Pré-preenche
-document.getElementById('origin').value='GRU — São Paulo — Guarulhos';
-document.getElementById('dest').value='GIG — Rio de Janeiro — Galeão';
-</script>
+  <footer class="site-footer">
+    Resultados obtidos pela API configurada no ambiente. Os dados podem vir de cache e mudar conforme novas buscas forem indexadas.
+  </footer>
 </body>
 </html>
