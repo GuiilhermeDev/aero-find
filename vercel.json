@@ -1,6 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "cleanUrls": true,
   "builds": [
     {
       "src": "index.html",
@@ -25,12 +24,7 @@
       "dest": "/index.html"
     },
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "handle": "filesystem"
     }
   ]
 }
